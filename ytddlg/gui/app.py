@@ -18,7 +18,7 @@ import yt_dlp.version
 from PIL import Image
 
 from .. import APP_TITLE, AUTHOR, __version__
-from ..config import Settings, default_out_dir, queue_file
+from ..config import Settings, config_dir, default_out_dir, queue_file
 from ..core.options import (
     AUDIO_FORMATS,
     AUDIO_QUALITIES,
@@ -45,6 +45,7 @@ from ..i18n import LANGUAGES, get_language, set_language
 from ..i18n import t as tr
 from . import theme
 from .dialogs import FormatDialog, PlaylistDialog, SettingsDialog
+from .fontfix import avoid_color_emoji_fonts
 from .fmt import ellipsize, human_speed
 from .notify import is_youtube_url, notify_done
 from .queue_view import QueueView, open_path
@@ -93,6 +94,7 @@ class App(ctk.CTk):
     def __init__(self, settings: Settings | None = None, restore: bool = True) -> None:
         self.settings = settings or Settings.load()
         set_language(self.settings.language)
+        avoid_color_emoji_fonts(config_dir())  # Linux: must happen before Tk loads any font
         ctk.set_appearance_mode(self.settings.appearance)
         super().__init__(fg_color=theme.WINDOW)
         self.title(f"{APP_TITLE} {__version__}  ·  by {AUTHOR}")
@@ -307,7 +309,7 @@ class App(ctk.CTk):
         self.langs_entry = ctk.CTkEntry(self.subs_frame, textvariable=self.langs_var, width=90, height=28)
         self.langs_entry.pack(side="left", padx=(4, 18))
         self.subs_frame.pack(side="left")
-        self.sb_label = ctk.CTkLabel(extras, text="⏭ SponsorBlock:")
+        self.sb_label = ctk.CTkLabel(extras, text="SponsorBlock:")
         self.sb_label.pack(side="left", padx=(0, 4))
         self.sb = Choice(SPONSORBLOCK_MODES, sponsorblock_label, s.sponsorblock, "off")
         ctk.CTkOptionMenu(
@@ -399,7 +401,7 @@ class App(ctk.CTk):
             self.details_lbl.configure(text=ellipsize(url, 120))
             self.probe_bar.grid(row=3, column=1, columnspan=3, sticky="ew", padx=(10, 14), pady=(0, 10))
             self.probe_bar.start()
-            self.set_status("⌛ " + tr("Analyzing the link…"), theme.INFO)
+            self.set_status(tr("Analyzing the link…"), theme.INFO)
             self._busy_tick(0)
         else:
             self.probe_bar.stop()
@@ -803,7 +805,7 @@ class App(ctk.CTk):
         ):
             return
         self._updating = True
-        self.update_btn.configure(state="disabled", text="⌛ " + tr("Updating…"))
+        self.update_btn.configure(state="disabled", text=tr("Updating…"))
         if not self._log_visible:
             self.toggle_log()
         exe = Path(sys.executable)

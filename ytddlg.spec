@@ -23,7 +23,8 @@ for tool in ("ffmpeg", "ffprobe", "deno"):
 datas = [(os.path.join(ROOT, "ytddlg", "assets"), os.path.join("ytddlg", "assets"))]
 datas += collect_data_files("customtkinter")
 datas += collect_data_files("yt_dlp_ejs")
-hiddenimports = ["yt_dlp_ejs"]
+# PIL.ImageTk loads PIL._tkinter_finder dynamically — PyInstaller misses it on Linux
+hiddenimports = ["yt_dlp_ejs", "PIL.ImageTk", "PIL._tkinter_finder"]
 
 # curl_cffi ships a native library and data (browser impersonation)
 cc_datas, cc_bins, cc_hidden = collect_all("curl_cffi")

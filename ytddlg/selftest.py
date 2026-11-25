@@ -1,7 +1,8 @@
 """Headless self-tests for the bundled app (Windows .exe / Linux).
 
-  --check    <result.json>                    offline: are the tools bundled and runnable
-  --selftest <out_dir> <result.json> [URL]    full test: probe + download a video and an MP3
+  --check     <result.json>                   offline: are the tools bundled and runnable
+  --check-gui <result.json>                   open and close the main window (needs a display)
+  --selftest  <out_dir> <result.json> [URL]   full test: probe + download a video and an MP3
 """
 
 from __future__ import annotations
@@ -40,17 +41,75 @@ def check(argv: list[str]) -> int:
         for name, flag in (("ffmpeg", "-version"), ("ffprobe", "-version"), ("deno", "--version")):
             path = getattr(tools, name)
             if path is None:
-                raise RuntimeError(f"brak {name} w paczce")
+                raise RuntimeError(f"{name} is not bundled")
             out = subprocess.run([str(path), flag], capture_output=True, text=True, timeout=60)
             first = (out.stdout or out.stderr).splitlines()[0] if (out.stdout or out.stderr) else ""
             if out.returncode != 0:
-                raise RuntimeError(f"{name} nie działa (kod {out.returncode}): {first}")
+                raise RuntimeError(f"{name} does not run (exit {out.returncode}): {first}")
             result["tools"][name] = {"path": str(path), "version": first[:80]}
         opts = build_ydl_opts(DownloadRequest(DEFAULT_URL, Path(".")), tools)
         result["js_runtimes"] = list(opts.get("js_runtimes", {}))
         import yt_dlp_ejs  # noqa: F401 — the JS challenge solver scripts must be bundled
 
+        # Modules loaded dynamically by the GUI (missed by PyInstaller on Linux in 0.4.0)
+        import PIL._tkinter_finder  # noqa: F401
+        import PIL.ImageTk  # noqa: F401
+        import customtkinter  # noqa: F401
+
         result["ok"] = True
+    except Exception as e:  # noqa: BLE001
+        result["error"] = "".join(traceback.format_exception(e))[-3000:]
+    _write(result_file, result)
+    return 0 if result["ok"] else 1
+
+
+def check_gui(argv: list[str]) -> int:
+    """Opens the real main window for a moment and closes it (needs a display; use xvfb-run in CI).
+
+    Any exception — also one raised inside a Tk callback — fails the check.
+    """
+    if not argv:
+        print(__doc__)
+        return 2
+    result_file = Path(argv[0])
+    result: dict = {"ok": False, "frozen": bool(getattr(sys, "frozen", False)), "platform": sys.platform}
+    errors: list[str] = []
+    try:
+        from .config import Settings
+        from .gui.app import App
+
+        app = App(settings=Settings(auto_paste=False, restore_queue=False, watch_clipboard=False), restore=False)
+
+        def report(exc, val, tb):
+            errors.append("".join(traceback.format_exception(exc, val, tb))[-3000:])
+
+        app.report_callback_exception = report
+
+        def finish():
+            try:
+                app.update()
+                result["window"] = {"title": app.title(), "width": app.winfo_width(), "height": app.winfo_height()}
+                from .gui.dialogs import SettingsDialog
+
+                dlg = SettingsDialog(app, app.settings, lambda: None)  # exercises the dialog code path too
+                app.update()
+                dlg.close()
+            except Exception:  # noqa: BLE001
+                errors.append(traceback.format_exc()[-3000:])
+            finally:
+                for job in (getattr(app, "_poll_id", None), getattr(app, "_clip_job", None)):
+                    try:
+                        app.after_cancel(job)
+                    except Exception:  # noqa: BLE001
+                        pass
+                app.destroy()
+
+        app.after(1500, finish)
+        app.mainloop()
+        if errors:
+            result["error"] = "\n\n".join(errors)
+        else:
+            result["ok"] = True
     except Exception as e:  # noqa: BLE001
         result["error"] = "".join(traceback.format_exception(e))[-3000:]
     _write(result_file, result)

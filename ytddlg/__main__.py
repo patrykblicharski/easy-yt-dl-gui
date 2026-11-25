@@ -34,6 +34,10 @@ def run() -> None:
         from ytddlg.selftest import check
 
         sys.exit(check(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "--check-gui":
+        from ytddlg.selftest import check_gui
+
+        sys.exit(check_gui(sys.argv[2:]))
     from ytddlg.gui.app import main
 
     main()

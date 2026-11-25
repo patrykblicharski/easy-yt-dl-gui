@@ -44,6 +44,22 @@ trap 'rm -rf "$TMP"' EXIT
 YTDDLG_CONFIG_DIR="$TMP/config" "$DIST/$APP" --check "$TMP/check.json" || { cat "$TMP/check.json"; exit 1; }
 echo "Package check: OK"
 
+# Open and close the real window (catches missing GUI modules). Headless machines use a virtual display.
+if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+  GUI_RUN=()
+elif command -v xvfb-run >/dev/null; then
+  GUI_RUN=(xvfb-run -a)
+else
+  GUI_RUN=(SKIP)
+fi
+if [ "${GUI_RUN[0]:-}" = "SKIP" ]; then
+  echo "GUI check: skipped (no display and no xvfb-run)"
+else
+  YTDDLG_CONFIG_DIR="$TMP/config" "${GUI_RUN[@]}" "$DIST/$APP" --check-gui "$TMP/check_gui.json" \
+    || { cat "$TMP/check_gui.json"; exit 1; }
+  echo "GUI check: OK"
+fi
+
 if [ "$SELFTEST" = 1 ]; then
   YTDDLG_CONFIG_DIR="$TMP/config" "$DIST/$APP" --selftest "$TMP/out" "$TMP/result.json" || { cat "$TMP/result.json"; exit 1; }
   echo "Self-test: OK"

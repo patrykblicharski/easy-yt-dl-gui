@@ -33,6 +33,10 @@ try {
     if ($p.ExitCode -ne 0) { Get-Content (Join-Path $tmp 'check.json'); throw "Package check failed ($($p.ExitCode))" }
     Write-Host 'Package check: OK'
 
+    $p = Start-Process -FilePath $exe -ArgumentList '--check-gui', "`"$tmp\check_gui.json`"" -Wait -PassThru
+    if ($p.ExitCode -ne 0) { Get-Content (Join-Path $tmp 'check_gui.json'); throw "GUI check failed ($($p.ExitCode))" }
+    Write-Host 'GUI check: OK'
+
     if ($SelfTest) {
         $p = Start-Process -FilePath $exe -ArgumentList '--selftest', "`"$tmp\out`"", "`"$tmp\result.json`"" -Wait -PassThru
         Get-Content (Join-Path $tmp 'result.json')

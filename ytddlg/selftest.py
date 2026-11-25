@@ -135,7 +135,7 @@ def main(argv: list[str]) -> int:
         result["yt_dlp"] = yt_dlp.version.__version__
         result["tools"] = {k: str(getattr(tools, k)) for k in ("ffmpeg", "ffprobe", "deno")}
         if not tools.ok:
-            raise RuntimeError(f"brak narzędzi: {tools.missing}")
+            raise RuntimeError(f"missing tools:{tools.missing}")
 
         info = probe(url, tools)
         result["probe"] = {"title": info.title, "max_height": info.max_height, "formats": len(info.formats)}
@@ -148,7 +148,7 @@ def main(argv: list[str]) -> int:
         files = []
         for req in (
             DownloadRequest(url, out_dir),
-            DownloadRequest(url, out_dir, mode=MODE_AUDIO, audio_format="MP3"),
+            DownloadRequest(url, out_dir, mode=MODE_AUDIO, audio_format="mp3"),
         ):
             p = run_download(req, tools, lambda p: None, lambda s: None, log, threading.Event())
             files.append({"path": str(p), "size": p.stat().st_size if p and p.exists() else 0})

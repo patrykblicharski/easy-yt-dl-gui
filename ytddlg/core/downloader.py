@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any, Callable
 import yt_dlp
 from yt_dlp.utils import DownloadCancelled, DownloadError
 
+from ..i18n import t
 from .options import DownloadRequest, build_ydl_opts
 from .tools import Tools
 
@@ -21,7 +23,7 @@ class Progress:
     total: int | None
     speed: float | None  # B/s
     eta: int | None  # s
-    stage: str  # stage description, e.g. "Obraz 1/2"
+    stage: str  # stage in English, e.g. "Video 1/2" (translated by stage_label)
 
 
 class CancelledByUser(Exception):
@@ -95,11 +97,11 @@ class _ProgressTracker:
             fraction = max(0.0, min(1.0, fraction))
 
         vcodec = info.get("vcodec")
-        kind = "Dźwięk" if vcodec in (None, "none") else "Obraz"
+        kind = "Audio" if vcodec in (None, "none") else "Video"
         if self.n_streams > 1:
             stage = f"{kind} {min(len(self.files), self.n_streams)}/{self.n_streams}"
         else:
-            stage = "Pobieranie"
+            stage = "Downloading"
         return Progress(
             fraction=fraction,
             downloaded=sum_done,
@@ -112,23 +114,36 @@ class _ProgressTracker:
 
 # Keys are PostProcessor.pp_key() (class name without "PP" and without the "FFmpeg" prefix)
 PP_NAMES = {
-    "Merger": "Scalanie",
-    "ExtractAudio": "Wyodrębnianie audio",
-    "Metadata": "Metadane",
-    "EmbedThumbnail": "Okładka",
-    "ThumbnailsConvertor": "Okładka",
-    "EmbedSubtitle": "Osadzanie napisów",
-    "SubtitlesConvertor": "Konwersja napisów",
+    "Merger": "Merging",
+    "ExtractAudio": "Extracting audio",
+    "Metadata": "Metadata",
+    "EmbedThumbnail": "Thumbnail",
+    "ThumbnailsConvertor": "Thumbnail",
+    "EmbedSubtitle": "Embedding subtitles",
+    "SubtitlesConvertor": "Converting subtitles",
     "SponsorBlock": "SponsorBlock",
-    "ModifyChapters": "Wycinanie segmentów",
-    "FixupM3u8": "Naprawa kontenera",
-    "FixupM4a": "Naprawa kontenera",
-    "FixupStretched": "Naprawa proporcji",
-    "FixupDuplicateMoov": "Naprawa kontenera",
-    "FixupTimestamp": "Naprawa znaczników",
-    "MoveFiles": "Przenoszenie",
-    "MoveFilesAfterDownload": "Przenoszenie",
+    "ModifyChapters": "Cutting segments",
+    "FixupM3u8": "Fixing container",
+    "FixupM4a": "Fixing container",
+    "FixupStretched": "Fixing aspect ratio",
+    "FixupDuplicateMoov": "Fixing container",
+    "FixupTimestamp": "Fixing timestamps",
+    "MoveFiles": "Moving file",
+    "MoveFilesAfterDownload": "Moving file",
 }
+_STREAM_STAGE = re.compile(r"^(Video|Audio) (\d+)/(\d+)$")
+
+
+def stage_label(stage: str) -> str:
+    """Translated stage text for display (stages are stored in English)."""
+    m = _STREAM_STAGE.match(stage or "")
+    if m:
+        return f"{t(m.group(1))} {m.group(2)}/{m.group(3)}"
+    return t(stage) if stage else ""
+
+
+# Every stage text that can reach stage_label() (checked by the translation test)
+STAGE_TEXTS = ("Downloading", "Analyzing", "Processing", "Video", "Audio", *PP_NAMES.values())
 
 
 def run_download(
@@ -149,20 +164,20 @@ def run_download(
 
     def progress_hook(d: dict[str, Any]) -> None:
         if cancel_event.is_set():
-            raise DownloadCancelled("Anulowano przez użytkownika")
+            raise DownloadCancelled("Cancelled by user")
         if d.get("status") in ("downloading", "finished"):
             on_progress(tracker.update(d))
 
     def pp_hook(d: dict[str, Any]) -> None:
         name = d.get("postprocessor") or ""
         if d.get("status") == "started":
-            on_stage(PP_NAMES.get(name, name or "Przetwarzanie"))
+            on_stage(PP_NAMES.get(name, name or "Processing"))
         elif d.get("status") == "finished":
             fp = (d.get("info_dict") or {}).get("filepath")
             if fp:
                 final_path.append(fp)
         if cancel_event.is_set():
-            raise DownloadCancelled("Anulowano przez użytkownika")
+            raise DownloadCancelled("Cancelled by user")
 
     opts = build_ydl_opts(req, tools)
     opts.update(
@@ -179,13 +194,13 @@ def run_download(
 
     try:
         with yt_dlp.YoutubeDL(opts) as ydl:
-            on_stage("Analiza")
+            on_stage("Analyzing")
             info = ydl.extract_info(req.url, download=True)
     except DownloadCancelled as e:
         raise CancelledByUser(str(e)) from e
     except DownloadError:
         if cancel_event.is_set():
-            raise CancelledByUser("Anulowano przez użytkownika")
+            raise CancelledByUser("Cancelled by user")
         raise
 
     if final_path:

@@ -8,6 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 import yt_dlp
 
+from ..i18n import t
 from .options import NetOptions, probe_ydl_opts
 from .tools import Tools
 
@@ -68,7 +69,7 @@ class ProbeResult:
 
     def summary(self) -> str:
         if self.kind == "playlist":
-            parts = [f"Playlista · {len(self.entries)} pozycji"]
+            parts = [t("Playlist · {n} entries", n=len(self.entries))]
             if self.uploader:
                 parts.append(self.uploader)
             return " · ".join(parts)
@@ -84,9 +85,9 @@ class ProbeResult:
             parts.append(f"audio {self.best_audio}")
         if self.subtitles:
             langs = ", ".join(self.subtitles[:6]) + ("…" if len(self.subtitles) > 6 else "")
-            parts.append(f"napisy: {langs}")
+            parts.append(t("subtitles: {langs}", langs=langs))
         elif self.auto_subtitles:
-            parts.append("napisy: tylko automatyczne")
+            parts.append(t("subtitles: auto-generated only"))
         return " · ".join(parts)
 
 
@@ -103,12 +104,12 @@ def _pick_thumbnail(info: dict[str, Any]) -> str | None:
     thumbs = info.get("thumbnails") or []
     # Prefer ~320–700 px wide (small download, Pillow reads JPG/WebP)
     best = None
-    for t in thumbs:
-        if not t.get("url"):
+    for thumb in thumbs:
+        if not thumb.get("url"):
             continue
-        w = t.get("width") or 0
+        w = thumb.get("width") or 0
         if 300 <= w <= 700 and (best is None or w > (best.get("width") or 0)):
-            best = t
+            best = thumb
     if best:
         return best["url"]
     return info.get("thumbnail") or (thumbs[-1]["url"] if thumbs else None)
@@ -174,7 +175,7 @@ def probe(
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=False)
         if info is None:
-            raise RuntimeError("Nie udało się odczytać informacji o linku.")
+            raise RuntimeError(t("Could not read information about the link."))
         info = ydl.sanitize_info(info)
 
         if info.get("_type") == "playlist" or "entries" in info:

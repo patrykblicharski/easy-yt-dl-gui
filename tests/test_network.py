@@ -58,11 +58,11 @@ def test_video_download(tmp_path):
     )
     assert path and path.exists() and path.suffix == ".mkv"
     assert seen and seen[-1].fraction == pytest.approx(1.0, abs=0.02)
-    assert any("Scalanie" in s for s in stages)
+    assert "Merging" in stages  # stages are stored in English and translated only for display
 
 
 def test_audio_download(tmp_path):
-    req = DownloadRequest(SHORT, tmp_path, mode=MODE_AUDIO, audio_format="MP3")
+    req = DownloadRequest(SHORT, tmp_path, mode=MODE_AUDIO, audio_format="mp3")
     path = run_download(req, TOOLS, lambda p: None, lambda s: None, lambda *a: None, threading.Event())
     assert path and path.exists() and path.suffix == ".mp3"
 

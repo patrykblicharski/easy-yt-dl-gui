@@ -19,18 +19,31 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Iterable
 
+from ..i18n import t
 from .downloader import CancelledByUser, Progress, run_download
 from .options import DownloadRequest
 from .tools import Tools
 
 
 class State(str, Enum):
-    IDLE = "Dodane"
-    PENDING = "Oczekuje"
-    RUNNING = "W toku"
-    DONE = "Gotowe"
-    ERROR = "Błąd"
-    CANCELLED = "Anulowane"
+    IDLE = "idle"
+    PENDING = "pending"
+    RUNNING = "running"
+    DONE = "done"
+    ERROR = "error"
+    CANCELLED = "cancelled"
+
+    @property
+    def label(self) -> str:
+        """Translated, human-readable state name."""
+        return {
+            State.IDLE: t("Added"),
+            State.PENDING: t("Waiting"),
+            State.RUNNING: t("In progress"),
+            State.DONE: t("Done"),
+            State.ERROR: t("Error"),
+            State.CANCELLED: t("Cancelled"),
+        }[self]
 
     @property
     def finished(self) -> bool:

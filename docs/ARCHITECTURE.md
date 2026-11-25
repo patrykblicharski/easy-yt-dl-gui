@@ -7,6 +7,7 @@ written in Python with [CustomTkinter](https://github.com/TomSchimansky/CustomTk
 ytddlg/
 ├─ __main__.py          entry point: GUI, --check, --selftest
 ├─ config.py            settings (%APPDATA%\ytddlg or ~/.config/ytddlg; YTDDLG_CONFIG_DIR overrides)
+├─ i18n.py, i18n_pl.py  t() translation helper, language detection, Polish dictionary
 ├─ selftest.py          headless checks for the bundled app
 ├─ core/                no GUI imports — testable and usable from scripts
 │  ├─ tools.py          finds ffmpeg / ffprobe / deno (bundle dir → venv → PATH)
@@ -48,6 +49,13 @@ with hundreds of entries. Row actions are text segments in the last column, hit-
 font. In Tk 8.6.10+ tag colours override the selection colour, so selection is an extra `sel` tag
 configured last.
 
+**Translations.** Code contains English source strings wrapped in `t()` (`tr()` in GUI modules, where `t`
+usually names a task); Polish lives in `ytddlg/i18n_pl.py`. Settings and saved tasks store language-independent
+ids (`best`, `1080`, `mp3`, `off` …) and labels are produced by the `*_label()` helpers, so switching the language
+never breaks saved data; labels written by versions ≤ 0.4 are migrated on load. `tests/test_i18n.py` fails when
+a string has no Polish translation, a translation is unused, `{placeholders}` differ, or Polish text appears in code.
+Adding a language = one more dictionary module registered in `ytddlg/i18n.py`.
+
 ## Testing
 
 ```
@@ -60,5 +68,6 @@ The bundled app has two headless modes used by the build scripts and CI:
 
 ```
 "Easy yt-dl-gui.exe" --check result.json                 # tools bundled and runnable (offline)
+"Easy yt-dl-gui.exe" --check-gui result.json             # open and close the real window
 "Easy yt-dl-gui.exe" --selftest out_dir result.json      # probe + download a short video and an MP3
 ```

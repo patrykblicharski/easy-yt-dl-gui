@@ -3,7 +3,7 @@ from pathlib import Path
 from ytddlg.core.files import related_files
 from ytddlg.core.options import MODE_AUDIO, DownloadRequest
 from ytddlg.gui.app import dup_key
-from ytddlg.gui.queue_view import ACTION_SEP, ACTIONS, progress_bar
+from ytddlg.gui.queue_view import ACTION_KEYS, ACTION_SEP, progress_bar
 
 
 def test_dup_key_same_file_only():
@@ -23,8 +23,8 @@ def test_progress_bar():
 def test_actions_defined_for_every_state():
     from ytddlg.core.queue import State
 
-    assert set(ACTIONS) == set(State)
-    assert [k for _, k in ACTIONS[State.DONE]] == ["play", "folder", "delete"]
+    assert set(ACTION_KEYS) == set(State)
+    assert [k for _, _, k in ACTION_KEYS[State.DONE]] == ["play", "folder", "delete"]
     assert ACTION_SEP.strip() == ""
 
 

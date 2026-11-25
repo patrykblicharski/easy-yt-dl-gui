@@ -35,8 +35,7 @@ Built on [yt-dlp](https://github.com/yt-dlp/yt-dlp) · bundles FFmpeg and Deno �
 - 📎 **Clipboard watching** (optional) — copied YouTube links land on the list automatically.
 - 🔔 Sound and taskbar flash when the list finishes, light/dark theme, duplicate warnings, keyboard shortcuts.
 - 🛠 Every task logs the equivalent `yt-dlp` command — copy it from the context menu.
-
-> The user interface is in **Polish**.
+- 🌍 **English and Polish** interface — follows your system language, switchable in the header.
 
 ## Download
 
@@ -57,12 +56,12 @@ On Linux, `./easy-yt-dl-gui/install-desktop-entry.sh` adds the app to your appli
 ## Usage
 
 1. Paste a YouTube link (video, playlist or channel) — it is analysed automatically.
-2. Pick **▶ Wideo** (video) or **♫ Tylko audio** (audio only) and the quality / format.
-3. Click **＋ Dodaj do listy** — *add to list* (`Ctrl+Enter`), add more links if you like.
-4. Click **▶ Pobierz wszystkie** — *download all* (`Ctrl+D`).
+2. Pick **▶ Video** or **♫ Audio only** and the quality / format.
+3. Click **＋ Add to list** (`Ctrl+Enter`), add more links if you like.
+4. Click **▶ Download all** (`Ctrl+D`).
 
-Finished items show **▶ Odtwórz · ▤ Folder · ✕ Usuń** (*play · folder · delete*) right in the row;
-right-click for more options.
+Finished items show **▶ Play · ▤ Folder · ✕ Delete** right in the row; right-click for more options.
+The interface language (English / Polski) is chosen in the header next to the theme switch.
 
 | Shortcut | Action |
 |---|---|
@@ -141,7 +140,7 @@ when running from source make sure `setup_env` finished and the header shows `de
 <details>
 <summary><b>"Sign in to confirm you're not a bot" / age-restricted or private videos</b></summary>
 
-Open **⚙ Ustawienia → Cookies** (Settings) and choose your browser (Firefox works best on Windows — Chrome and Edge encrypt
+Open **⚙ Settings → Cookies** and choose your browser (Firefox works best on Windows — Chrome and Edge encrypt
 their cookies in a way yt-dlp usually cannot read) or point to an exported `cookies.txt`.
 </details>
 

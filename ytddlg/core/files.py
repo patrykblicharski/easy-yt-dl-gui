@@ -6,6 +6,8 @@ import os
 import sys
 from pathlib import Path
 
+from ..i18n import t
+
 
 def move_to_trash(path: Path) -> None:
     """Moves a file to the Recycle Bin / Trash. Raises OSError on failure.
@@ -49,9 +51,9 @@ def move_to_trash(path: Path) -> None:
     op.fFlags = FOF_ALLOWUNDO | FOF_NOCONFIRMATION | FOF_SILENT | FOF_NOERRORUI
     rc = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(op))
     if rc != 0 or op.fAnyOperationsAborted:
-        raise OSError(f"Nie udało się przenieść do Kosza (kod {rc}): {path}")
+        raise OSError(t("Could not move to the Recycle Bin (code {rc}): {path}", rc=rc, path=path))
     if path.exists():
-        raise OSError(f"Plik nadal istnieje: {path}")
+        raise OSError(t("The file still exists: {path}", path=path))
 
 
 def _trash_posix(path: Path) -> None:
@@ -90,7 +92,7 @@ def _unique(p: Path) -> Path:
         q = p.with_name(f"{p.stem}.{i}{p.suffix}")
         if not q.exists():
             return q
-    raise OSError(f"Brak wolnej nazwy w koszu dla {p.name}")
+    raise OSError(t("No free name in the trash for {name}", name=p.name))
 
 
 def related_files(path: Path) -> list[Path]:

@@ -33,7 +33,7 @@ def test_video_best_mkv():
 
 
 def test_video_height_limit():
-    opts = build_ydl_opts(DownloadRequest("u", OUT, video_quality="1080p"))
+    opts = build_ydl_opts(DownloadRequest("u", OUT, video_quality="1080"))
     assert opts["format"].startswith("bv*[height<=1080]+ba/b[height<=1080]")
 
 
@@ -54,7 +54,7 @@ def test_audio_original_no_quality():
 
 
 def test_audio_mp3_320():
-    req = DownloadRequest("u", OUT, mode=MODE_AUDIO, audio_format="MP3", audio_quality="320 kb/s")
+    req = DownloadRequest("u", OUT, mode=MODE_AUDIO, audio_format="mp3", audio_quality="320K")
     opts = build_ydl_opts(req)
     extract = next(pp for pp in opts["postprocessors"] if pp["key"] == "FFmpegExtractAudio")
     assert extract["preferredcodec"] == "mp3"
@@ -62,7 +62,7 @@ def test_audio_mp3_320():
 
 
 def test_wav_has_no_thumbnail():
-    opts = build_ydl_opts(DownloadRequest("u", OUT, mode=MODE_AUDIO, audio_format="WAV"))
+    opts = build_ydl_opts(DownloadRequest("u", OUT, mode=MODE_AUDIO, audio_format="wav"))
     assert "EmbedThumbnail" not in pp_keys(opts)
 
 
@@ -174,5 +174,5 @@ def test_request_roundtrip():
 
 
 def test_label():
-    assert "napisy" in DownloadRequest("u", OUT, subs=True).label()
+    assert "subtitles" in DownloadRequest("u", OUT, subs=True).label()
     assert "f 137+251" in DownloadRequest("u", OUT, format_override="137+251").label()

@@ -3,6 +3,9 @@
 Options are built as CLI arguments and passed through yt_dlp.parse_options, so the
 library behaves exactly like a tested `yt-dlp ...` command, and the log can show the
 equivalent command line.
+
+Choices are stored as language-independent ids (e.g. "best", "1080", "mp3"); the GUI shows
+translated labels via the *_label() helpers.
 """
 
 from __future__ import annotations
@@ -17,51 +20,35 @@ from typing import Any
 
 import yt_dlp
 
+from ..i18n import t
 from .tools import Tools
 
 MODE_VIDEO = "video"
 MODE_AUDIO = "audio"
 
-# GUI label -> max height (None = no limit)
+# video quality id -> max height (None = no limit)
 VIDEO_QUALITIES: dict[str, int | None] = {
-    "Najlepsza": None,
-    "2160p (4K)": 2160,
-    "1440p": 1440,
-    "1080p": 1080,
-    "720p": 720,
-    "480p": 480,
+    "best": None,
+    "2160": 2160,
+    "1440": 1440,
+    "1080": 1080,
+    "720": 720,
+    "480": 480,
 }
 
 CONTAINERS = ["MKV", "MP4"]
 
-# GUI label -> --audio-format
-AUDIO_FORMATS: dict[str, str] = {
-    "Oryginał (bez rekompresji)": "best",
-    "MP3": "mp3",
-    "M4A (AAC)": "m4a",
-    "Opus": "opus",
-    "FLAC (bezstratny kontener)": "flac",
-    "WAV": "wav",
-}
+# audio format id == yt-dlp --audio-format value
+AUDIO_FORMATS = ["best", "mp3", "m4a", "opus", "flac", "wav"]
 LOSSY_AUDIO = {"mp3", "m4a", "opus"}
 # Formats yt-dlp can embed a thumbnail into
 THUMBNAIL_AUDIO = {"best", "mp3", "m4a", "opus", "flac"}
 
-# GUI label -> --audio-quality
-AUDIO_QUALITIES: dict[str, str] = {
-    "Najlepsza (VBR)": "0",
-    "320 kb/s": "320K",
-    "256 kb/s": "256K",
-    "192 kb/s": "192K",
-    "128 kb/s": "128K",
-}
+# audio quality id == yt-dlp --audio-quality value
+AUDIO_QUALITIES = ["0", "320K", "256K", "192K", "128K"]
 
 SB_OFF, SB_MARK, SB_REMOVE = "off", "mark", "remove"
-SPONSORBLOCK: dict[str, str] = {
-    "Wyłączony": SB_OFF,
-    "Oznacz jako rozdziały": SB_MARK,
-    "Wytnij segmenty": SB_REMOVE,
-}
+SPONSORBLOCK_MODES = [SB_OFF, SB_MARK, SB_REMOVE]
 SB_DEFAULT_CATEGORIES = "sponsor,selfpromo,interaction"
 SB_ALL_CATEGORIES = [
     "sponsor", "intro", "outro", "selfpromo", "preview", "filler", "interaction", "music_offtopic", "hook",
@@ -72,6 +59,52 @@ COOKIE_BROWSERS = ["", "firefox", "chrome", "edge", "brave", "opera", "vivaldi",
 DEFAULT_TEMPLATE = "%(title).150B [%(id)s].%(ext)s"
 RATE_RE = re.compile(r"^\d+(\.\d+)?[KMG]?$", re.IGNORECASE)
 LANGS_RE = re.compile(r"^[\w.*\-|^$]+(,[\w.*\-|^$]+)*$")
+
+# Polish labels stored by versions <= 0.4 -> ids (settings.json and queue.json migration)
+LEGACY_IDS = {
+    "video_quality": {"Najlepsza": "best", "2160p (4K)": "2160", "1440p": "1440", "1080p": "1080",
+                      "720p": "720", "480p": "480"},
+    "audio_format": {"Oryginał (bez rekompresji)": "best", "MP3": "mp3", "M4A (AAC)": "m4a", "Opus": "opus",
+                     "FLAC (bezstratny kontener)": "flac", "WAV": "wav"},
+    "audio_quality": {"Najlepsza (VBR)": "0", "320 kb/s": "320K", "256 kb/s": "256K", "192 kb/s": "192K",
+                      "128 kb/s": "128K"},
+}
+
+
+def migrate_ids(data: dict[str, Any]) -> dict[str, Any]:
+    """Replaces legacy Polish labels with ids in a settings/request dict (in place)."""
+    for key, mapping in LEGACY_IDS.items():
+        if data.get(key) in mapping:
+            data[key] = mapping[data[key]]
+    return data
+
+
+# --- translated labels ------------------------------------------------------------
+def video_quality_label(qid: str) -> str:
+    if qid == "best":
+        return t("Best")
+    if qid == "2160":
+        return "2160p (4K)"
+    return f"{qid}p"
+
+
+def audio_format_label(fid: str) -> str:
+    return {
+        "best": t("Original (no re-encoding)"),
+        "mp3": "MP3",
+        "m4a": "M4A (AAC)",
+        "opus": "Opus",
+        "flac": t("FLAC (lossless container)"),
+        "wav": "WAV",
+    }.get(fid, fid)
+
+
+def audio_quality_label(qid: str) -> str:
+    return t("Best (VBR)") if qid == "0" else f"{qid[:-1]} kb/s"
+
+
+def sponsorblock_label(mode: str) -> str:
+    return {SB_OFF: t("Off"), SB_MARK: t("Mark as chapters"), SB_REMOVE: t("Cut out segments")}.get(mode, mode)
 
 
 @dataclass
@@ -88,14 +121,13 @@ class DownloadRequest:
     url: str
     out_dir: Path
     mode: str = MODE_VIDEO
-    video_quality: str = "Najlepsza"
+    video_quality: str = "best"
     container: str = "MKV"
     compat: bool = False  # prefer H.264/AAC (players, TVs, editors)
-    audio_format: str = "Oryginał (bez rekompresji)"
-    audio_quality: str = "Najlepsza (VBR)"
+    audio_format: str = "best"
+    audio_quality: str = "0"
     template: str = DEFAULT_TEMPLATE
     title: str = ""  # only for display in the queue
-    # --- version 2 ---
     format_override: str = ""  # manually selected format, e.g. "137+251"
     subs: bool = False
     sub_langs: str = "pl,en"
@@ -108,17 +140,17 @@ class DownloadRequest:
 
     def label(self) -> str:
         if self.mode == MODE_AUDIO:
-            fmt = AUDIO_FORMATS.get(self.audio_format, "best")
-            text = "Audio · " + ("oryginał" if fmt == "best" else fmt.upper())
+            fmt = self.audio_format
+            text = t("Audio") + " · " + (t("original") if fmt == "best" else fmt.upper())
             if self.format_override:
                 text += f" · f {self.format_override}"
         elif self.format_override:
-            text = f"Wideo · f {self.format_override} · {self.container}"
+            text = t("Video") + f" · f {self.format_override} · {self.container}"
         else:
-            q = self.video_quality.split(" ")[0]
-            text = f"Wideo · {q} · {self.container}" + (" · H.264" if self.compat else "")
+            q = video_quality_label(self.video_quality).split(" ")[0]
+            text = t("Video") + f" · {q} · {self.container}" + (" · H.264" if self.compat else "")
         if self.subs and self.mode == MODE_VIDEO:
-            text += " · napisy"
+            text += " · " + t("subtitles")
         if self.sponsorblock == SB_REMOVE:
             text += " · −SB"
         return text
@@ -132,7 +164,7 @@ class DownloadRequest:
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "DownloadRequest":
         known = {f.name for f in fields(cls)}
-        data = {k: v for k, v in d.items() if k in known}
+        data = migrate_ids({k: v for k, v in d.items() if k in known})
         net = data.pop("net", None) or {}
         net_known = {f.name for f in fields(NetOptions)}
         data["out_dir"] = Path(data.get("out_dir") or ".")
@@ -154,7 +186,7 @@ def net_args(net: NetOptions | None, tools: Tools | None) -> list[str]:
             args += ["--cookies-from-browser", net.cookies_browser]
         if net.rate_limit:
             if not RATE_RE.match(net.rate_limit):
-                raise ValueError(f"Niepoprawny limit prędkości: {net.rate_limit} (np. 5M, 800K)")
+                raise ValueError(t("Invalid speed limit: {value} (e.g. 5M, 800K)", value=net.rate_limit))
             args += ["--limit-rate", net.rate_limit]
     return args
 
@@ -171,23 +203,23 @@ def build_args(req: DownloadRequest, tools: Tools | None = None) -> list[str]:
     ]
 
     if req.mode == MODE_AUDIO:
-        fmt = AUDIO_FORMATS.get(req.audio_format)
-        if fmt is None:
-            raise ValueError(f"Nieznany format audio: {req.audio_format}")
+        fmt = req.audio_format
+        if fmt not in AUDIO_FORMATS:
+            raise ValueError(t("Unknown audio format: {value}", value=fmt))
         args += ["-f", req.format_override or "ba/b", "-x", "--audio-format", fmt]
         if fmt in LOSSY_AUDIO:
-            args += ["--audio-quality", AUDIO_QUALITIES.get(req.audio_quality, "0")]
+            args += ["--audio-quality", req.audio_quality if req.audio_quality in AUDIO_QUALITIES else "0"]
         args += ["--embed-metadata"]
         if fmt in THUMBNAIL_AUDIO:
             args += ["--embed-thumbnail"]
     elif req.mode == MODE_VIDEO:
         if req.container not in CONTAINERS:
-            raise ValueError(f"Nieznany kontener: {req.container}")
+            raise ValueError(t("Unknown container: {value}", value=req.container))
         if req.format_override:
             fmt_sel = req.format_override
         else:
             if req.video_quality not in VIDEO_QUALITIES:
-                raise ValueError(f"Nieznana jakość wideo: {req.video_quality}")
+                raise ValueError(t("Unknown video quality: {value}", value=req.video_quality))
             h = VIDEO_QUALITIES[req.video_quality]
             fmt_sel = "bv*+ba/b" if h is None else f"bv*[height<={h}]+ba/b[height<={h}]/bv*+ba/b"
         args += ["-f", fmt_sel, "--merge-output-format", req.container.lower()]
@@ -197,7 +229,7 @@ def build_args(req: DownloadRequest, tools: Tools | None = None) -> list[str]:
         if req.subs:
             langs = req.sub_langs.replace(" ", "")
             if not langs or not LANGS_RE.match(langs):
-                raise ValueError(f"Niepoprawne języki napisów: {req.sub_langs!r} (np. pl,en)")
+                raise ValueError(t("Invalid subtitle languages: {value} (e.g. pl,en)", value=repr(req.sub_langs)))
             args += ["--write-subs", "--sub-langs", langs]
             if req.sub_auto:
                 args += ["--write-auto-subs"]
@@ -206,19 +238,19 @@ def build_args(req: DownloadRequest, tools: Tools | None = None) -> list[str]:
             else:
                 args += ["--convert-subs", "srt"]
     else:
-        raise ValueError(f"Nieznany tryb: {req.mode}")
+        raise ValueError(t("Unknown mode: {value}", value=req.mode))
 
     if req.sponsorblock in (SB_MARK, SB_REMOVE):
         cats = req.sb_categories.replace(" ", "") or SB_DEFAULT_CATEGORIES
         unknown = set(cats.split(",")) - set(SB_ALL_CATEGORIES) - {"all", "default"}
         if unknown:
-            raise ValueError(f"Nieznane kategorie SponsorBlock: {', '.join(sorted(unknown))}")
+            raise ValueError(t("Unknown SponsorBlock categories: {value}", value=", ".join(sorted(unknown))))
         if req.sponsorblock == SB_MARK:
             args += ["--sponsorblock-mark", cats]
         else:
             args += ["--sponsorblock-remove", cats]
     elif req.sponsorblock != SB_OFF:
-        raise ValueError(f"Nieznany tryb SponsorBlock: {req.sponsorblock}")
+        raise ValueError(t("Unknown SponsorBlock mode: {value}", value=req.sponsorblock))
 
     args += list(req.extra_args)
     return args

@@ -8,7 +8,7 @@ from dataclasses import asdict, dataclass, fields
 from pathlib import Path
 
 from . import APP_NAME
-from .core.options import DEFAULT_TEMPLATE, MODE_VIDEO, SB_DEFAULT_CATEGORIES, SB_OFF, NetOptions
+from .core.options import DEFAULT_TEMPLATE, MODE_VIDEO, SB_DEFAULT_CATEGORIES, SB_OFF, NetOptions, migrate_ids
 
 
 def config_dir() -> Path:
@@ -32,11 +32,12 @@ def default_out_dir() -> str:
 class Settings:
     out_dir: str = ""
     mode: str = MODE_VIDEO
-    video_quality: str = "Najlepsza"
+    language: str = ""  # "pl" / "en"; empty = system language
+    video_quality: str = "best"
     container: str = "MKV"
     compat: bool = False
-    audio_format: str = "Oryginał (bez rekompresji)"
-    audio_quality: str = "Najlepsza (VBR)"
+    audio_format: str = "best"
+    audio_quality: str = "0"
     template: str = DEFAULT_TEMPLATE
     max_parallel: int = 2
     appearance: str = "System"  # System / Dark / Light
@@ -74,6 +75,9 @@ class Settings:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             return cls()
+        if not isinstance(data, dict):
+            return cls()
+        migrate_ids(data)  # labels saved by versions <= 0.4
         known = {f.name: f for f in fields(cls)}
         clean = {}
         defaults = cls()

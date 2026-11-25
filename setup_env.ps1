@@ -12,9 +12,14 @@ if (-not (Test-Path $py)) {
 & $py -m pip install --upgrade pip
 & $py -m pip install --upgrade -r (Join-Path $root 'requirements.txt')
 
-# Fetch static ffmpeg/ffprobe builds and copy them into .venv\Scripts (on PATH once the venv is active)
-$paths = & $py -c "import static_ffmpeg.run as r; print('|'.join(r.get_or_fetch_platform_executables_else_raise()))"
-$paths.Trim().Split('|') | ForEach-Object { Copy-Item $_ $scripts -Force }
+# Fetch static ffmpeg/ffprobe builds and copy them into .venv\Scripts (on PATH once the venv is active).
+# The copy happens in Python: on the first run static_ffmpeg prints download progress to stdout,
+# so its output cannot be parsed as a list of paths.
+& $py -c "import shutil, sys, static_ffmpeg.run as r; [shutil.copy2(p, sys.argv[1]) for p in r.get_or_fetch_platform_executables_else_raise()]" $scripts
+if ($LASTEXITCODE -ne 0) { throw "Fetching ffmpeg/ffprobe failed ($LASTEXITCODE)" }
+foreach ($tool in 'ffmpeg.exe', 'ffprobe.exe') {
+    if (-not (Test-Path (Join-Path $scripts $tool))) { throw "$tool was not copied to $scripts" }
+}
 
 $env:PATH = "$scripts;$env:PATH"
 Write-Host "yt-dlp : $(yt-dlp --version)"

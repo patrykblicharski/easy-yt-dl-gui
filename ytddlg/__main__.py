@@ -26,6 +26,11 @@ def ensure_streams() -> None:
 
 def run() -> None:
     ensure_streams()
+    if len(sys.argv) > 1 and sys.argv[1].startswith("--"):
+        # Headless checks: on a native crash (e.g. a segfault in Tk) print the Python stack
+        import faulthandler
+
+        faulthandler.enable(all_threads=True)
     if len(sys.argv) > 1 and sys.argv[1] == "--selftest":
         from ytddlg.selftest import main as selftest
 

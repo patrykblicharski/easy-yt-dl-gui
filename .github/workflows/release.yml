@@ -111,6 +111,12 @@ jobs:
           ./setup_env.sh
       - name: Tests
         run: xvfb-run -a .venv/bin/python -m pytest -q tests
+      - name: GUI check from source (tells code bugs apart from packaging bugs)
+        run: |
+          export YTDDLG_CONFIG_DIR="$(mktemp -d)"
+          xvfb-run -a .venv/bin/python -X faulthandler -m ytddlg --check-gui "$YTDDLG_CONFIG_DIR/check_gui.json" \
+            || { cat "$YTDDLG_CONFIG_DIR/check_gui.json" 2>/dev/null; exit 1; }
+          cat "$YTDDLG_CONFIG_DIR/check_gui.json"
       - name: Build + tar.gz
         run: |
           if [ "${{ inputs.selftest }}" = "true" ]; then ./build_linux.sh --selftest; else ./build_linux.sh; fi

@@ -33,7 +33,7 @@ jobs:
       version: ${{ steps.ver.outputs.version }}
       tag: ${{ steps.ver.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Resolve version and tag
@@ -62,8 +62,8 @@ jobs:
       run:
         shell: pwsh
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Pin version
@@ -79,7 +79,7 @@ jobs:
       - name: Build .exe + ZIP
         run: |
           if ("${{ inputs.selftest }}" -eq "true") { ./build_exe.ps1 -SelfTest } else { ./build_exe.ps1 }
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-x64
           path: release/*
@@ -91,8 +91,8 @@ jobs:
     runs-on: ubuntu-22.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Pin version
@@ -108,7 +108,7 @@ jobs:
       - name: Build + tar.gz
         run: |
           if [ "${{ inputs.selftest }}" = "true" ]; then ./build_linux.sh --selftest; else ./build_linux.sh; fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-x64
           path: release/*
@@ -118,8 +118,8 @@ jobs:
     needs: [version, build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           path: release
           merge-multiple: true

@@ -1,0 +1,19 @@
+# Środowisko i artefakty
+.venv/
+build/
+dist/
+release/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Pobrane pliki testowe
+test_downloads/
+
+# Lokalne ustawienia narzędzi
+.claude/settings.local.json
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

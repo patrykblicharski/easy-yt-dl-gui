@@ -1,0 +1,140 @@
+# Builds a release ON DEMAND: Actions tab → "Release" → Run workflow,
+# or from a terminal:  gh workflow run release.yml -f version=0.4.0
+# Produces a Windows x64 .zip and a Linux x64 .tar.gz (each with a .sha256) and publishes a GitHub release.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (empty = read from ytddlg/__init__.py)"
+        required: false
+        default: ""
+      prerelease:
+        description: "Mark as pre-release"
+        type: boolean
+        default: false
+      selftest:
+        description: "Also run the full self-test that downloads from YouTube (often blocked on GitHub runners)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Resolve version and tag
+        id: ver
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          v="${INPUT_VERSION#v}"
+          if [ -z "$v" ]; then
+            v="$(python3 -c 'import ytddlg; print(ytddlg.__version__)')"
+          fi
+          tag="v$v"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::Tag $tag already exists — bump the version in ytddlg/__init__.py or pass another one."
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Building $tag"
+
+  build-windows:
+    needs: version
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pin version
+        run: |
+          (Get-Content ytddlg/__init__.py) -replace '^__version__ = ".*"', '__version__ = "${{ needs.version.outputs.version }}"' |
+            Set-Content -Encoding utf8 ytddlg/__init__.py
+      - name: Environment (venv, yt-dlp, ffmpeg, deno)
+        run: |
+          python -m venv .venv
+          ./setup_env.ps1
+      - name: Tests
+        run: .\.venv\Scripts\python -m pytest -q tests
+      - name: Build .exe + ZIP
+        run: |
+          if ("${{ inputs.selftest }}" -eq "true") { ./build_exe.ps1 -SelfTest } else { ./build_exe.ps1 }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: release/*
+          retention-days: 7
+
+  build-linux:
+    needs: version
+    # The oldest supported Ubuntu keeps the bundled binary compatible with older glibc versions
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Pin version
+        run: sed -i -E 's/^__version__ = ".*"/__version__ = "${{ needs.version.outputs.version }}"/' ytddlg/__init__.py
+      - name: System packages (Tk runtime)
+        run: sudo apt-get update && sudo apt-get install -y tk-dev libxss1
+      - name: Environment (venv, yt-dlp, ffmpeg, deno)
+        run: |
+          python -m venv .venv
+          ./setup_env.sh
+      - name: Tests
+        run: xvfb-run -a .venv/bin/python -m pytest -q tests
+      - name: Build + tar.gz
+        run: |
+          if [ "${{ inputs.selftest }}" = "true" ]; then ./build_linux.sh --selftest; else ./build_linux.sh; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x64
+          path: release/*
+          retention-days: 7
+
+  publish:
+    needs: [version, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.version.outputs.tag }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          ls -la release
+          flags=()
+          if [ "$PRERELEASE" = "true" ]; then flags+=(--prerelease); fi
+          gh release create "$TAG" release/* \
+            --title "Easy yt-dl-gui $TAG" \
+            --target "$GITHUB_SHA" \
+            --notes-file docs/RELEASE_NOTES.md \
+            --generate-notes \
+            "${flags[@]}"

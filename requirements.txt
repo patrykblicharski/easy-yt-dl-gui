@@ -1,0 +1,13 @@
+# Silnik pobierania + opcjonalne zależności (brotli, certifi, mutagen, pycryptodomex,
+# websockets, requests, yt-dlp-ejs) oraz curl_cffi (impersonacja przeglądarki)
+yt-dlp[default,curl-cffi]>=2026.11.23
+# Statyczne buildy ffmpeg + ffprobe (scalanie wideo+audio, konwersja audio, miniatury)
+static-ffmpeg>=3.0
+# Runtime JavaScript wymagany przez yt-dlp do rozwiązywania wyzwań YouTube (n-sig / formaty HD)
+deno>=2.9
+# GUI
+customtkinter>=6.0
+Pillow>=11.0
+# Testy i budowanie .exe (build_exe.ps1)
+pytest>=8.0
+pyinstaller>=6.0

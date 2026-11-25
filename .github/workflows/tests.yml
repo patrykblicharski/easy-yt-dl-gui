@@ -1,0 +1,41 @@
+# Fast offline tests on every push and pull request (Windows + Linux).
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+      - name: ffmpeg/ffprobe next to the interpreter
+        shell: python
+        run: |
+          import os, shutil, sys
+          import static_ffmpeg.run as r
+          target = os.path.join(sys.prefix, "Scripts" if os.name == "nt" else "bin")
+          for p in r.get_or_fetch_platform_executables_else_raise():
+              shutil.copy2(p, target)
+      - name: Tests (Windows)
+        if: runner.os == 'Windows'
+        run: python -m pytest -q tests
+      - name: Tests (Linux, virtual display)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a python -m pytest -q tests
